@@ -1,5 +1,5 @@
 import whatsappService from './whatsappService.js';
-import openAiService from "./openAiService.js";
+import openAiService from './openAiService.js';
 
 class MessageHandler {
 
@@ -20,13 +20,13 @@ class MessageHandler {
       } else if (this.appointmentState[message.from]) {
         await this.handleAppointmentFlow(message.from, incomingMessage);
       } else if (this.assistandState[message.from]) {
-        await this.handleAssistantFlow(message.from, incomingMessage);
+        await this.handleAssistandFlow(message.from, incomingMessage);
       } else {
         await this.handleMenuOption(message.from, incomingMessage);
       }
       await whatsappService.markAsRead(message.id);
     } else if (message?.type === 'interactive') {
-      const option = message?.interactive?.button_reply?.title.toLowerCase().trim();
+      const option = message?.interactive?.button_reply?.id
       await this.handleMenuOption(message.from, option);
       await whatsappService.markAsRead(message.id);
     }
@@ -67,17 +67,21 @@ class MessageHandler {
   async handleMenuOption(to, option) {
     let response;
     switch (option) {
-      case 'agendar':
+      case 'option_1':
         this.appointmentState[to] = { step: 'name' }
         response = "Por favor, ingresa tu nombre:";
         break;
-      case 'consultar':
+      case 'option_2':
         this.assistandState[to] = { step: 'question' };
         response = "Realiza tu consulta";
         break
-      case 'ubicacion': 
-       response = 'Esta es nuestra Ubicación';
+      case 'option_3': 
+       response = 'Te esperamos en nuestra sucursal';
+       await this.sendLocation(to);
        break
+      case 'option_6':
+        response = "Si esto es una emergencia, te invitamos a llamar a nuestra linea de atención"
+        await this.sendContact(to);
       default: 
        response = "Lo siento, no entendí tu selección, Por Favor, elige una de las opciones del menú."
     }
@@ -85,9 +89,9 @@ class MessageHandler {
   }
 
   async sendMedia(to) {
-    // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-audio.aac';
-    // const caption = 'Bienvenida';
-    // const type = 'audio';
+    const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-audio.aac';
+    const caption = 'Bienvenida';
+    const type = 'audio';
 
     // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-imagen.png';
     // const caption = '¡Esto es una Imagen!';
@@ -97,9 +101,9 @@ class MessageHandler {
     // const caption = '¡Esto es una video!';
     // const type = 'video';
 
-    const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf';
-    const caption = '¡Esto es un PDF!';
-    const type = 'document';
+    // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf';
+    // const caption = '¡Esto es un PDF!';
+    // const type = 'document';
 
     await whatsappService.sendMediaMessage(to, type, mediaUrl, caption);
   }
@@ -117,11 +121,17 @@ class MessageHandler {
       new Date().toISOString()
     ]
 
-    console.log(userData);
+    // appendToSheet(userData);
 
-    return `*Gracias por agendar tu cita.*\n\nResumen de tu cita:\n\nNombre: ${appointment.name}\nNombre de tu Mascota: ${appointment.petName}\nTipo de Mascota: ${appointment.petType}\nMotivo de la Consulta: ${appointment.reason}\n
-    `
+    return `Gracias por agendar tu cita. 
+    Resumen de tu cita:
     
+    Nombre: ${appointment.name}
+    Nombre de la mascota: ${appointment.petName}
+    Tipo de mascota: ${appointment.petType}
+    Motivo: ${appointment.reason}
+    
+    Nos pondremos en contacto contigo pronto para confirmar la fecha y hora de tu cita.`
   }
 
   async handleAppointmentFlow(to, message) {
@@ -152,29 +162,84 @@ class MessageHandler {
     await whatsappService.sendMessage(to, response);
   }
 
-  async handleAssistantFlow(to, message) {
+  async handleAssistandFlow(to, message) {
     const state = this.assistandState[to];
     let response;
 
-    const menuMessage = "¿La respuesta fue de tu ayuda?";
+    const menuMessage = "¿La respuesta fue de tu ayuda?"
     const buttons = [
-      {
-        type: 'reply', reply: { id: 'option_4', title: 'Si, gracias' }
-      },
-      {
-        type: 'reply', reply: { id: 'option_5', title: 'Hacer otra pregunta' }
-      },
-      {
-        type: 'reply', reply: { id: 'option_6', title: 'Emergencia' }
-      },
-    ]
+      { type: 'reply', reply: { id: 'option_4', title: "Si, Gracias" } },
+      { type: 'reply', reply: { id: 'option_5', title: 'Hacer otra pregunta'}},
+      { type: 'reply', reply: { id: 'option_6', title: 'Emergencia'}}
+    ];
 
     if (state.step === 'question') {
       response = await openAiService(message);
     }
 
     delete this.assistandState[to];
+    await whatsappService.sendMessage(to, response);
     await whatsappService.sendInteractiveButtons(to, menuMessage, buttons);
+  }
+
+  async sendContact(to) {
+    const contact = {
+      addresses: [
+        {
+          street: "123 Calle de las Mascotas",
+          city: "Ciudad",
+          state: "Estado",
+          zip: "12345",
+          country: "País",
+          country_code: "PA",
+          type: "WORK"
+        }
+      ],
+      emails: [
+        {
+          email: "contacto@medpet.com",
+          type: "WORK"
+        }
+      ],
+      name: {
+        formatted_name: "MedPet Contacto",
+        first_name: "MedPet",
+        last_name: "Contacto",
+        middle_name: "",
+        suffix: "",
+        prefix: ""
+      },
+      org: {
+        company: "MedPet",
+        department: "Atención al Cliente",
+        title: "Representante"
+      },
+      phones: [
+        {
+          phone: "+1234567890",
+          wa_id: "1234567890",
+          type: "WORK"
+        }
+      ],
+      urls: [
+        {
+          url: "https://www.medpet.com",
+          type: "WORK"
+        }
+      ]
+    };
+
+    await whatsappService.sendContactMessage(to, contact);
+  }
+
+
+  async sendLocation(to) {
+    const latitude = 6.2071694;
+    const longitude = -75.5656887;
+    const name = "MedPet";
+    const address = "123 Calle de las Mascotas";
+
+    await whatsappService.sendLocationMessage(to, latitude, longitude, name, address);
   }
 
 }

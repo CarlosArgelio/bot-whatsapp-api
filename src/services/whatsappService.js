@@ -14,9 +14,9 @@ class WhatsAppService {
           messaging_product: 'whatsapp',
           to,
           text: { body },
-          context: {
-            message_id: messageId,
-          },
+          // context: {
+          //   message_id: messageId,
+          // },
         },
       });
     } catch (error) {
@@ -43,7 +43,7 @@ class WhatsAppService {
     }
   }
 
-  async sendInterativeButtons(to, BodyText, buttons) {
+  async sendInteractiveButtons(to, BodyText, buttons) {
     try {
       await axios({
         method: 'POST',
@@ -57,18 +57,15 @@ class WhatsAppService {
           type: 'interactive',
           interactive: {
             type: 'button',
-            body: {
-              text: BodyText,
-            },
+            body: { text: BodyText },
             action: {
               buttons: buttons
             }
-          },
+          }
         },
       });
     } catch (error) {
-      console.error('Error sending interactive buttons')
-      
+      console.error(error);
     }
   }
 
@@ -78,22 +75,19 @@ class WhatsAppService {
 
       switch (type) {
         case 'image':
-          mediaObject.image = { link: mediaUrl, caption }
+          mediaObject.image = { link: mediaUrl, caption: caption }
           break;
-
         case 'audio':
-          mediaObject.audio = { link: mediaUrl}
+          mediaObject.audio = { link:mediaUrl }
           break;
-        
         case 'video':
-          mediaObject.video = { link: mediaUrl, caption }
+          mediaObject.video = { link: mediaUrl, caption: caption }
           break;
-        
         case 'document':
-          mediaObject.document = { link: mediaUrl, caption, filename: 'medpet.pdf' }
+          mediaObject.document = { link: mediaUrl, caption: caption, filename: 'medpet.pdf' }
           break;
         default:
-          throw new Error('Not Soported Media Type')
+          throw new Error('Not Soported Media Type');
       }
 
       await axios({
@@ -110,7 +104,7 @@ class WhatsAppService {
         },
       });
     } catch (error) {
-      console.error(error)
+      console.error('Error sending Media', error);
     }
   }
 }

@@ -1,24 +1,29 @@
 import whatsappService from './whatsappService.js';
 
 class MessageHandler {
+
+  constructor() {
+    this.appointmentState = {};
+  }
+
   async handleIncomingMessage(message, senderInfo) {
-    
     if (message?.type === 'text') {
       const incomingMessage = message.text.body.toLowerCase().trim();
 
       if(this.isGreeting(incomingMessage)){
         await this.sendWelcomeMessage(message.from, message.id, senderInfo);
         await this.sendWelcomeMenu(message.from);
-      } else if (incomingMessage === 'pdf' || incomingMessage === 'audio' || incomingMessage === 'imagen' || incomingMessage === 'video') {
-        await this.sendMedia(message.from, incomingMessage);
+      } else if(incomingMessage === 'media') {
+        await this.sendMedia(message.from);
+      } else if (this.appointmentState[message.from]) {
+        await this.handleAppointmentFlow(message.from, incomingMessage);
       } else {
-        const response = `Echo: ${message.text.body}`;
-        await whatsappService.sendMessage(message.from, response, message.id);
+        await this.handleMenuOption(message.from, incomingMessage);
       }
       await whatsappService.markAsRead(message.id);
-    } else if (message.type === 'interactive') {
+    } else if (message?.type === 'interactive') {
       const option = message?.interactive?.button_reply?.title.toLowerCase().trim();
-      await this.handleMenuOption(message.from, option, message.id);
+      await this.handleMenuOption(message.from, option);
       await whatsappService.markAsRead(message.id);
     }
   }
@@ -29,87 +34,99 @@ class MessageHandler {
   }
 
   getSenderName(senderInfo) {
-    return senderInfo.profile?.name || senderInfo.wa_id || "Usuario";
+    return senderInfo.profile?.name || senderInfo.wa_id;
   }
 
   async sendWelcomeMessage(to, messageId, senderInfo) {
-    const name = this.getSenderName(senderInfo).split(' ')[0];
+    const name = this.getSenderName(senderInfo);
     const welcomeMessage = `Hola ${name}, Bienvenido a MEDPET, Tu tienda de mascotas en línea. ¿En qué puedo ayudarte hoy?`;
     await whatsappService.sendMessage(to, welcomeMessage, messageId);
   }
 
   async sendWelcomeMenu(to) {
-    const menuMessage = "Elije una opcion"
+    const menuMessage = "Elige una Opción"
     const buttons = [
-      {type: 'reply', reply: {id: 'option1', title: '📅 Agendar cita'}},
-      {type: 'reply', reply: {id: 'option2', title: '❤️ Consultar'}},
-      {type: 'reply', reply: {id: 'option3', title: '📍 Ubicacion'}},
-    ]
+      {
+        type: 'reply', reply: { id: 'option_1', title: 'Agendar' }
+      },
+      {
+        type: 'reply', reply: { id: 'option_2', title: 'Consultar'}
+      },
+      {
+        type: 'reply', reply: { id: 'option_3', title: 'Ubicación'}
+      }
+    ];
 
-    await whatsappService.sendInterativeButtons(to, menuMessage, buttons);
+    await whatsappService.sendInteractiveButtons(to, menuMessage, buttons);
   }
 
-  async handleMenuOption(to, option, messageId) {
+  async handleMenuOption(to, option) {
     let response;
     switch (option) {
-      case '📅 agendar cita':
-        response = 'Agendar Cita'
+      case 'agendar':
+        this.appointmentState[to] = { step: 'name' }
+        response = "Por favor, ingresa tu nombre:";
         break;
-      case '❤️ consultar':
-        response = 'Consultar'
-        break;
-      case '📍 ubicacion':
-        response = 'Esta es nuestra ubicacion'
-        break;
-      default:
-        response = 'Lo siente, no entendi tu seleccion, Por favor, elige una opcion del menu'
+      case 'consultar':
+        response = "Realiza tu consulta";
+        break
+      case 'ubicacion': 
+       response = 'Esta es nuestra Ubicación';
+       break
+      default: 
+       response = "Lo siento, no entendí tu selección, Por Favor, elige una de las opciones del menú."
     }
-    await whatsappService.sendMessage(to, response, messageId);
+    await whatsappService.sendMessage(to, response);
   }
-  
-  async sendMedia(to, incomingMessage) {
-    let dataObject;
-    switch (incomingMessage) {
-      case 'pdf':
-        dataObject = {
-          type: 'document',
-          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf',
-          caption: '¡Esto es un PDF!',
-        }
-        break;
-      case 'audio':
-        dataObject = {
-          type: 'audio',
-          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-audio.aac',
-          caption: 'Bienvenida',
-        }
-        break;
-      case 'imagen':
-        dataObject = {
-          type: 'image',
-          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-imagen.png',
-          caption: '¡Esto es una Imagen!',
-        }
-        break;
-      case 'video':
-        dataObject = {
-          type: 'video',
-          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-video.mp4',
-          caption: '¡Esto es una video!',
-        }
-        break;
-      default:
-        dataObject = {
-          type: 'document',
-          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf',
-          caption: '¡Esto es un PDF!',
-        }
-    }
+
+  async sendMedia(to) {
+    // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-audio.aac';
+    // const caption = 'Bienvenida';
+    // const type = 'audio';
+
+    // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-imagen.png';
+    // const caption = '¡Esto es una Imagen!';
+    // const type = 'image';
+
+    // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-video.mp4';
+    // const caption = '¡Esto es una video!';
+    // const type = 'video';
+
     const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf';
     const caption = '¡Esto es un PDF!';
     const type = 'document';
+
     await whatsappService.sendMediaMessage(to, type, mediaUrl, caption);
   }
+
+  async handleAppointmentFlow(to, message) {
+    const state = this.appointmentState[to];
+    let response;
+
+    switch (state.step) {
+      case 'name':
+        state.name = message;
+        state.step = 'petName';
+        response = "Gracias, Ahora, ¿Cuál es el nombre de tu Mascota?"
+        break;
+      case 'petName':
+        state.petName = message;
+        state.step = 'petType';
+        response = '¿Qué tipo de mascota es? (por ejemplo: perro, gato, huron, etc.)'
+        break;
+      case 'petType':
+        state.petType = message;
+        state.step = 'reason';
+        response = '¿Cuál es el motivo de la Consulta?';
+        break;
+      case 'reason':
+        state.reason = message;
+        response = 'Gracias por agendar tu cita.';
+        break;
+    }
+    await whatsappService.sendMessage(to, response);
+  }
+
 }
 
 export default new MessageHandler();

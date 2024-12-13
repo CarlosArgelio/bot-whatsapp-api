@@ -9,10 +9,16 @@ class MessageHandler {
       if(this.isGreeting(incomingMessage)){
         await this.sendWelcomeMessage(message.from, message.id, senderInfo);
         await this.sendWelcomeMenu(message.from);
+      } else if (incomingMessage === 'pdf' || incomingMessage === 'audio' || incomingMessage === 'imagen' || incomingMessage === 'video') {
+        await this.sendMedia(message.from, incomingMessage);
       } else {
         const response = `Echo: ${message.text.body}`;
         await whatsappService.sendMessage(message.from, response, message.id);
       }
+      await whatsappService.markAsRead(message.id);
+    } else if (message.type === 'interactive') {
+      const option = message?.interactive?.button_reply?.title.toLowerCase().trim();
+      await this.handleMenuOption(message.from, option, message.id);
       await whatsappService.markAsRead(message.id);
     }
   }
@@ -43,6 +49,67 @@ class MessageHandler {
     await whatsappService.sendInterativeButtons(to, menuMessage, buttons);
   }
 
+  async handleMenuOption(to, option, messageId) {
+    let response;
+    switch (option) {
+      case '📅 agendar cita':
+        response = 'Agendar Cita'
+        break;
+      case '❤️ consultar':
+        response = 'Consultar'
+        break;
+      case '📍 ubicacion':
+        response = 'Esta es nuestra ubicacion'
+        break;
+      default:
+        response = 'Lo siente, no entendi tu seleccion, Por favor, elige una opcion del menu'
+    }
+    await whatsappService.sendMessage(to, response, messageId);
+  }
+  
+  async sendMedia(to, incomingMessage) {
+    let dataObject;
+    switch (incomingMessage) {
+      case 'pdf':
+        dataObject = {
+          type: 'document',
+          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf',
+          caption: '¡Esto es un PDF!',
+        }
+        break;
+      case 'audio':
+        dataObject = {
+          type: 'audio',
+          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-audio.aac',
+          caption: 'Bienvenida',
+        }
+        break;
+      case 'imagen':
+        dataObject = {
+          type: 'image',
+          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-imagen.png',
+          caption: '¡Esto es una Imagen!',
+        }
+        break;
+      case 'video':
+        dataObject = {
+          type: 'video',
+          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-video.mp4',
+          caption: '¡Esto es una video!',
+        }
+        break;
+      default:
+        dataObject = {
+          type: 'document',
+          mediaUrl: 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf',
+          caption: '¡Esto es un PDF!',
+        }
+    }
+    const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf';
+    const caption = '¡Esto es un PDF!';
+    const type = 'document';
+    await whatsappService.sendMediaMessage(to, type, mediaUrl, caption);
+  }
 }
 
 export default new MessageHandler();
